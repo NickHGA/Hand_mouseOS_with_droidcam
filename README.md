@@ -1,146 +1,121 @@
-# RemoteCam Virtual Webcam
+# RemoteCam Virtual Webcam & Hand Mouse
 
-Transforme ton téléphone en webcam système pour Zoom, Meet, Teams, OBS, etc.
+Transforme ton téléphone en **webcam système** pour Zoom, Meet, OBS, etc., et en **souris virtuelle** contrôlée par la main !
 
 ## 🏗️ Architecture
 
 ```
-[PHONE]                           [PC]
-RemoteCam App                     ├── Video Decoder (FFmpeg/OpenCV)
-  └── MJPEG stream ──────────────►├── Virtual Webcam Driver
-      (HTTP)                      │    ├── Linux: v4l2loopback
-                                  │    └── Windows: DirectShow
-                                  └── Applications (Zoom, OBS, Meet...)
+[PHONE]                           [PC (Windows / Linux)]
+RemoteCam App                     ├── 1. NETWORK & DISCOVERY
+  └── MJPEG stream ──────────────►│    ├── Auto-detection (UDP/Scanning)
+      (HTTP)                      │    └── Stream Capture (OpenCV)
+                                  │
+                                  ├── 2. PROCESSING LAYER
+                                  │    ├── Video Filters (Rotate, Blur, Vintage...)
+                                  │    └── HAND TRACKING (MediaPipe) ────► [MOUSE CONTROL]
+                                  │
+                                  └── 3. VIRTUAL WEBCAM DRIVER
+                                       ├── Linux: v4l2loopback
+                                       └── Windows: pyvirtualcam / DirectShow
+                                       │
+                                       ▼
+                                  [APPLICATIONS]
+                                  (Zoom, OBS, Google Meet, Teams...)
+```
+
+## ✨ Fonctionnalités
+
+- **Webcam Virtuelle** : Utilise ton téléphone comme caméra HD sans fil.
+- **Auto-Détection** : Trouve automatiquement l'IP de ton téléphone sur le réseau.
+- **Contrôle Souris (Hand Tracking)** 🖱️ : Contrôle ta souris avec l'index et clique en pinçant.
+- **Filtres Vidéo** 🎨 : Rotation, Miroir, Flou, Vintage, Cartoon, etc.
+- **Compatible** : Windows & Linux.
+
+## 🚀 Installation
+
+### Pré-requis communs (Python)
+```bash
+cd pc
+pip install -r requirements.txt
+```
+
+### Linux
+1. Installer le driver v4l2loopback :
+   ```bash
+   cd pc/linux
+   sudo ./setup_v4l2loopback.sh
+   ```
+
+### Windows
+1. Installer OBS Studio (pour le driver webcam virtuelle) ou utiliser le mode Preview seul.
+
+## 🎮 Utilisation
+
+### Mode Automatique (Recommandé)
+Le script cherche ton téléphone et lance la webcam virtuelle :
+
+```bash
+# Windows
+python pc/windows/remotecam_to_webcam.py --auto-detect --mouse-control
+
+# Linux
+python pc/linux/remotecam_to_webcam.py --auto-detect
+```
+
+### Mode Manuel
+Si l'auto-détection échoue, spécifie l'IP (visible sur l'app RemoteCam) :
+
+```bash
+python pc/windows/remotecam_to_webcam.py -i 192.168.0.XX
+```
+
+### Options Utiles
+
+| Option | Description |
+|--------|-------------|
+| `--mouse-control` | Active le contrôle de la souris par la main |
+| `--preview` | Affiche une fenêtre de prévisualisation |
+| `--rotate 90` | Tourne l'image (90, 180, 270) |
+| `--grayscale` | Filtre Noir & Blanc |
+| `--vintage` | Filtre effet ancien |
+| `--blur 10` | Floute l'arrière-plan (simulé) |
+| `--flip horizontal` | Miroir (utile pour la webcam) |
+
+## 🖱️ Guide Contrôle Souris
+
+1. Active l'option `--mouse-control`
+2. Montre ta main à la caméra.
+3. **Bouger** : Pointe avec l'**index**. La souris suit ton doigt.
+4. **Cliquer** : Pince le **pouce et l'index** ensemble.
+
+## ⚙️ Configuration Avancée
+
+Tu peux modifier `pc/common/config.yaml` pour sauvegarder tes préférences :
+
+```yaml
+remotecam:
+  phone_ip: "192.168.0.XX"  # Ton IP fixe
+  scan_timeout: 2.0         # Durée scan réseau
+
+video:
+  width: 1280
+  height: 720
+  fps: 30
+
+filters:
+  enabled: []               # Liste: ['rotate', 'vintage']
+  rotate_angle: 90
 ```
 
 ## 📁 Structure du projet
 
 ```
 project/
-├── phone/
-│   └── RemoteCam (app Android)
+├── phone/                  # Code Android (RemoteCam)
 ├── pc/
-│   ├── linux/
-│   │   ├── setup_v4l2loopback.sh    # Installe le driver webcam virtuelle
-│   │   ├── remotecam_to_webcam.sh   # Script FFmpeg Linux
-│   │   └── remotecam_to_webcam.py   # Script Python Linux
-│   ├── windows/
-│   │   ├── install_virtual_cam.ps1  # Guide d'installation Windows
-│   │   ├── remotecam_to_webcam.bat  # Script batch Windows
-│   │   └── remotecam_to_webcam.py   # Script Python Windows
-│   └── common/
-│       └── config.yaml              # Configuration partagée
-└── docs/
-    └── architecture.md              # Documentation technique
+│   ├── common/             # Modules partagés (Scan, Config, Filtres, HandTracking)
+│   ├── linux/              # Scripts Linux (Bash & Python)
+│   ├── windows/            # Scripts Windows (Bat & Python)
+│   └── requirements.txt    # Dépendances Python
+└── docs/                   # Documentation technique
 ```
-
-## 🐧 Linux - Guide Rapide
-
-### 1. Installer la webcam virtuelle
-```bash
-cd pc/linux
-chmod +x setup_v4l2loopback.sh
-sudo ./setup_v4l2loopback.sh
-```
-
-### 2. Lancer le stream
-```bash
-chmod +x remotecam_to_webcam.sh
-./remotecam_to_webcam.sh -i 192.168.1.100
-```
-
-Ou avec Python :
-```bash
-pip install opencv-python
-python remotecam_to_webcam.py -i 192.168.1.100 --preview
-```
-
-### 3. Utiliser
-
-La webcam `/dev/video10` est maintenant visible dans Zoom, OBS, etc.
-
-## 🪟 Windows - Guide Rapide
-
-### 1. Installer les dépendances
-```powershell
-# Exécuter en tant qu'administrateur
-.\install_virtual_cam.ps1
-```
-
-Ou manuellement :
-- **FFmpeg**: `winget install Gyan.FFmpeg`
-- **OBS Studio**: https://obsproject.com/download
-
-### 2. Méthode OBS (recommandée)
-
-1. Ouvrir OBS Studio
-2. Ajouter une source "VLC Video Source"
-3. URL: `http://192.168.1.100:8080/video`
-4. Cliquer "Start Virtual Camera"
-5. Sélectionner "OBS Virtual Camera" dans Zoom/Meet
-
-### 3. Méthode Python
-
-```bash
-pip install opencv-python pyvirtualcam
-python remotecam_to_webcam.py -i 192.168.1.100 --preview
-```
-
-## ⚙️ Configuration
-
-Éditer `pc/common/config.yaml` :
-
-```yaml
-remotecam:
-  phone_ip: "192.168.1.100"  # IP de ton téléphone
-  port: 8080                  # Port RemoteCam
-
-video:
-  width: 640
-  height: 480
-  fps: 30
-```
-
-## 🔧 Dépannage
-
-### Problème: "Cannot connect to RemoteCam"
-
-1. Vérifier que RemoteCam est lancé sur le téléphone
-2. Vérifier que téléphone et PC sont sur le même réseau WiFi
-3. Tester l'URL dans un navigateur: `http://192.168.1.100:8080/video`
-
-### Problème: "Video device does not exist" (Linux)
-
-```bash
-sudo modprobe v4l2loopback devices=1 video_nr=10
-```
-
-### Problème: "Virtual camera not available" (Windows)
-
-1. Installer OBS Studio
-2. Ouvrir OBS au moins une fois
-3. Vérifier que Virtual Camera est activé dans les paramètres OBS
-
-## 📝 Options en ligne de commande
-
-### Linux (bash)
-```bash
-./remotecam_to_webcam.sh -i <IP> -p <PORT> -d /dev/videoX -r WxH
-```
-
-### Python (cross-platform)
-```bash
-python remotecam_to_webcam.py \
-  -i 192.168.1.100 \
-  --width 1280 --height 720 \
-  --fps 30 \
-  --flip horizontal \
-  --preview
-```
-
-## 🎯 Ce que fait ce projet
-
-✅ **Transport vidéo**: RemoteCam (téléphone → HTTP)
-✅ **Virtualisation**: v4l2loopback / DirectShow (HTTP → Webcam système)
-✅ **Cross-platform**: Linux & Windows
-✅ **Open source**: Aucun logiciel propriétaire requis

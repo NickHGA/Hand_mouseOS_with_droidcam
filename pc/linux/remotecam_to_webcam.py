@@ -6,8 +6,9 @@ RemoteCam - Stream to Virtual Webcam (Linux)
 Enhanced version with:
 - Auto-detection of phone IP
 - Config file support (config.yaml)
-- Video filters (rotation, effects, etc.)
-- v4l2loopback output integrated
+- Video filters
+- v4l2loopback output
+- Hand Tracking Mouse Control (NEW)
 
 Requirements:
     pip install -r requirements.txt
@@ -31,6 +32,15 @@ try:
     from common.config_loader import load_config
     from common.network_scanner import find_remotecam
     from common.video_filters import create_filter_chain_from_args, apply_filters, AVAILABLE_FILTERS
+    
+    # Optional Hand Tracking imports
+    try:
+        from common.hand_tracking import HandTracker
+        from common.mouse_controller import MouseController
+        HAND_TRACKING_AVAILABLE = True
+    except ImportError:
+        HAND_TRACKING_AVAILABLE = False
+        
 except ImportError as e:
     print(f"Error importing common modules: {e}")
     sys.exit(1)
@@ -57,6 +67,10 @@ def parse_args():
     parser.add_argument('--width', type=int, help='Output width')
     parser.add_argument('--height', type=int, help='Output height')
     parser.add_argument('--fps', type=int, help='Target FPS')
+    
+    # Mouse Control args
+    parser.add_argument('--mouse-control', action='store_true', help='Enable Hand Tracking Mouse Control')
+    parser.add_argument('--smoothing', type=float, default=0.7, help='Mouse smoothing factor (0.0-0.9)')
     
     # Output args
     parser.add_argument('--preview', action='store_true', help='Show preview window')
@@ -135,6 +149,20 @@ def main():
     if filters:
         print(f"  Active Filters: {', '.join([f.get('name') for f in filters])}")
         
+    # Setup Hand Tracking
+    hand_tracker = None
+    mouse = None
+    use_mouse_control = args.mouse_control
+    
+    if use_mouse_control:
+        if HAND_TRACKING_AVAILABLE:
+            print("🖱️  Mouse Control:  ENABLED")
+            hand_tracker = HandTracker(detection_conf=0.7, tracking_conf=0.7)
+            mouse = MouseController(smoothing=args.smoothing)
+        else:
+            print("⚠️  Mouse Control:  DISABLED (mediapipe/pyautogui missing)")
+            use_mouse_control = False
+            
     print("=" * 60)
     
     # 4. Connect to Stream
@@ -194,6 +222,27 @@ def main():
             # Apply Filters
             if filters:
                 frame = apply_filters(frame, filters)
+                
+            # --- Hand Tracking & Mouse Control ---
+            if use_mouse_control and hand_tracker:
+                hand_tracker.process(frame)
+                pos = hand_tracker.get_pointer_position()
+                
+                if pos:
+                    x, y = pos
+                    margin = 0.1
+                    mapped_x = (x - margin) / (1 - 2*margin)
+                    mapped_y = (y - margin) / (1 - 2*margin)
+                    
+                    # Mirror X
+                    mouse.move(1.0 - mapped_x, mapped_y)
+                    
+                    if hand_tracker.is_pinching(threshold=0.04):
+                        mouse.click()
+                        cv2.circle(frame, (int(x*config.width), int(y*config.height)), 20, (0, 255, 0), cv2.FILLED)
+                
+                frame = hand_tracker.draw_landmarks(frame)
+            # -------------------------------------
             
             # Calculate FPS
             frame_count += 1
@@ -210,23 +259,16 @@ def main():
             if args.preview:
                 preview_frame = frame.copy()
                 
-                # Overlay Info
-                cv2.putText(
-                    preview_frame,
-                    f"FPS: {fps_display:.1f}",
-                    (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
+                cv2.putText(preview_frame, f"FPS: {fps_display:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                
+                if use_mouse_control:
+                    cv2.putText(preview_frame, "MOUSE CONTROL ON", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                 
                 cv2.imshow("RemoteCam Linux", preview_frame)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
-                # Need slight sleep to maintain loop timing if no imshow
                 time.sleep(1.0 / (config.fps + 5))
                     
     except KeyboardInterrupt:
