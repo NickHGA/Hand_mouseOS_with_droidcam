@@ -1,0 +1,63 @@
+# =============================================================================
+# RemoteCam Virtual Webcam - Configuration
+# =============================================================================
+
+# Phone/RemoteCam Settings
+remotecam:
+  # IP address of the phone running RemoteCam
+  # If auto_detect is true, this will be overridden if a camera is found
+  phone_ip: "192.168.1.100"
+  
+  # Port used by RemoteCam (default: 8080)
+  port: 8080
+  
+  # Stream endpoint (MJPEG stream)
+  endpoint: "/video"
+
+# Network Discovery
+network:
+  # Automatically scan network for RemoteCam on startup
+  auto_detect: true
+  
+  # Timeout per IP check in seconds
+  scan_timeout: 2.0
+
+# Video Settings
+video:
+  # Output resolution
+  width: 640
+  height: 480
+  
+  # Framerate target
+  fps: 30
+  
+  # Pixel format (yuyv422 is widely compatible)
+  pixel_format: "yuyv422"
+
+# Video Filters
+# Enable filters by adding them to the 'enabled' list or using CLI args
+filters:
+  # List of filters to apply by default: [rotate, brightness, edge, etc.]
+  enabled: []
+  
+  # Default parameter values for filters
+  rotate: 0        # 0, 90, 180, 270
+  brightness: 0    # -100 to 100
+  contrast: 0      # -100 to 100
+  blur: 0          # 0 to 50
+  sharpen: 0       # 0 or 1 (boolean-like for now, or float strength if implemented)
+
+# Linux Settings
+linux:
+  # Virtual video device number (/dev/videoX)
+  video_device_number: 10
+  
+  # Device label shown in applications
+  device_label: "RemoteCam Virtual Webcam"
+
+# Windows Settings
+windows:
+  # Virtual camera name (must match installed driver)
+  virtual_camera_name: "OBS Virtual Camera"
+  
+  # Alternative: "AK Virtual Camera" if using akvcam

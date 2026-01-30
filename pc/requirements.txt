@@ -1,0 +1,17 @@
+# Python dependencies for RemoteCam Virtual Webcam
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Virtual camera support (Windows)
+pyvirtualcam>=0.10.0
+
+# Hand tracking and Mouse control
+mediapipe>=0.10.0
+pyautogui>=0.9.50
+screeninfo>=0.8.0
+
+# Optional: YAML config parsing
+pyyaml>=6.0
